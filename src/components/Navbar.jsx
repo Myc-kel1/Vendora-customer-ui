@@ -32,7 +32,7 @@ const Navbar = () => {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <Link to="/" className="font-display text-2xl font-bold text-foreground tracking-tight">
-            Aurelia
+            Vendora
           </Link>
 
           <div className="hidden md:flex items-center gap-8">

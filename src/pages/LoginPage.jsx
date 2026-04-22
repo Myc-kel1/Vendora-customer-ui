@@ -97,12 +97,12 @@ const LoginPage = () => {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between p-12 bg-foreground text-background">
-        <Link to="/" className="font-display text-3xl font-bold">Aurelia</Link>
+        <Link to="/" className="font-display text-3xl font-bold">Vendora</Link>
         <div>
           <p className="font-display text-5xl font-bold leading-tight mb-4">Curated for the mindful shopper</p>
           <p className="text-background/60 text-lg">Quality essentials, thoughtfully selected.</p>
         </div>
-        <p className="text-background/40 text-sm">© 2026 Aurelia</p>
+        <p className="text-background/40 text-sm">© 2026 Vendora</p>
       </div>
 
       <div className="flex items-center justify-center p-6 sm:p-10">
@@ -116,7 +116,7 @@ const LoginPage = () => {
               {mode === 'login' ? 'Welcome back' : 'Create account'}
             </h1>
             <p className="text-muted-foreground">
-              {mode === 'login' ? 'Sign in to continue shopping' : 'Join Aurelia for a curated experience'}
+              {mode === 'login' ? 'Sign in to continue shopping' : 'Join Vendora for a curated experience'}
             </p>
           </div>
 
