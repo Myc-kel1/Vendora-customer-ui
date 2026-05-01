@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Search, SlidersHorizontal, Loader2 } from 'lucide-react'
+import { Search, SlidersHorizontal, Loader2, AlertCircle, RotateCw } from 'lucide-react'
 import ProductCard from '@/components/ProductCard'
 import Footer from '@/components/Footer'
 import { apiFetch } from '@/lib/api'
@@ -14,6 +14,7 @@ const ProductsPage = () => {
   const [products, setProducts] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [total, setTotal] = useState(0)
   const activeCategory = searchParams.get('category') ?? ''
   const { logCall, updateCall } = useApiSimulator()
@@ -29,35 +30,50 @@ const ProductsPage = () => {
     const id = logCall({ method: 'GET', endpoint: '/categories', status: 'pending', description: 'Fetch categories' })
     apiFetch('/categories')
       .then((data) => {
-        setCategories(Array.isArray(data) ? data : [])
+        const catList = Array.isArray(data) ? data : []
+        setCategories(catList)
+        console.log('[ProductsPage] Categories loaded:', catList.length)
         updateCall(id, { status: 'success', statusCode: 200 })
       })
-      .catch(() => updateCall(id, { status: 'error', statusCode: 500 }))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+      .catch((err) => {
+        console.error('[ProductsPage] Failed to load categories:', err.message)
+        setCategories([])
+        updateCall(id, { status: 'error', statusCode: err.status ?? 500 })
+      })
+  }, [logCall, updateCall]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch products whenever search or category changes
   const fetchProducts = useCallback(async () => {
     setLoading(true)
+    setError(null)
     const params = new URLSearchParams({ page: 1, page_size: 50 })
     if (debouncedSearch) params.set('search', debouncedSearch)
     if (activeCategory) params.set('category_id', activeCategory)
 
     const endpoint = `/products?${params.toString()}`
     const id = logCall({ method: 'GET', endpoint, status: 'pending', description: 'Fetch products' })
+
     try {
+      console.log('[ProductsPage] Fetching products with filters:', { search: debouncedSearch, category: activeCategory })
       const data = await apiFetch(endpoint)
       setProducts(data.items ?? [])
       setTotal(data.total ?? 0)
+      console.log('[ProductsPage] Products loaded:', data.items?.length ?? 0, 'of', data.total ?? 0)
       updateCall(id, { status: 'success', statusCode: 200 })
-    } catch {
-      updateCall(id, { status: 'error', statusCode: 500 })
+    } catch (err) {
+      console.error('[ProductsPage] Failed to load products:', err.message)
+      setError(err.message || 'Failed to load products')
       setProducts([])
+      setTotal(0)
+      updateCall(id, { status: 'error', statusCode: err.status ?? 500 })
     } finally {
       setLoading(false)
     }
-  }, [debouncedSearch, activeCategory]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debouncedSearch, activeCategory, logCall, updateCall]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => { fetchProducts() }, [fetchProducts])
+  useEffect(() => { 
+    fetchProducts() 
+  }, [fetchProducts])
 
   const handleCategoryClick = (catId) => {
     if (catId) setSearchParams({ category: catId })
@@ -103,9 +119,33 @@ const ProductsPage = () => {
           </div>
         </div>
 
+        {/* Error State */}
+        {error && !loading && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-red-800">{error}</p>
+                <p className="text-xs text-red-700 mt-1">We're having trouble loading products. Please try again.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => fetchProducts()}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-red-100 hover:bg-red-200 text-red-800 rounded transition-colors"
+            >
+              <RotateCw className="w-4 h-4" />
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Loading State */}
         {loading ? (
           <div className="flex items-center justify-center py-24">
-            <Loader2 className="w-8 h-8 text-muted-foreground animate-spin" />
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 text-muted-foreground animate-spin mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Loading products...</p>
+            </div>
           </div>
         ) : products.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">

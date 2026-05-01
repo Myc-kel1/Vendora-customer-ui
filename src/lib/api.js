@@ -2,8 +2,13 @@
  * Vendora API Client
  * Base URL: https://vendora-api-6xo8.onrender.com
  *
- * All requests inject the Supabase access_token from localStorage.
- * All 4xx/5xx responses are thrown as structured ApiError objects.
+ * Best Practices:
+ * - Access token stored in localStorage (with in-memory cache for performance)
+ * - Automatic token refresh before expiry
+ * - Retry logic with exponential backoff for transient failures (5xx, network errors)
+ * - All requests inject the Supabase access_token automatically
+ * - Public endpoints work without authentication
+ * - All 4xx/5xx responses thrown as structured ApiError objects
  */
 
 export const BASE_URL = 'https://vendora-api-6xo8.onrender.com'
@@ -13,14 +18,23 @@ export const TOKEN_KEY = 'vendora_access_token'
 export const REFRESH_KEY = 'vendora_refresh_token'
 export const USER_KEY = 'vendora_user'
 
+// In-memory cache for performance
+let tokenCache = null
+
 // ─── Token helpers ────────────────────────────────────────────────────────────
 
 export function getToken() {
-  return localStorage.getItem(TOKEN_KEY)
+  // Return in-memory cache if available, otherwise read from localStorage
+  if (tokenCache) return tokenCache
+  tokenCache = localStorage.getItem(TOKEN_KEY)
+  return tokenCache
 }
 
 export function setTokens({ access_token, refresh_token }) {
-  if (access_token) localStorage.setItem(TOKEN_KEY, access_token)
+  if (access_token) {
+    localStorage.setItem(TOKEN_KEY, access_token)
+    tokenCache = access_token // Update in-memory cache
+  }
   if (refresh_token) localStorage.setItem(REFRESH_KEY, refresh_token)
 }
 
@@ -28,6 +42,7 @@ export function clearTokens() {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(REFRESH_KEY)
   localStorage.removeItem(USER_KEY)
+  tokenCache = null // Clear in-memory cache
 }
 
 // ─── Custom error class ───────────────────────────────────────────────────────
@@ -39,40 +54,101 @@ export class ApiError extends Error {
     this.detail = detail
     this.name = 'ApiError'
   }
+
+  isNetworkError() {
+    return !this.status || this.status >= 500
+  }
+
+  isClientError() {
+    return this.status >= 400 && this.status < 500
+  }
 }
 
-// ─── Core fetch wrapper ───────────────────────────────────────────────────────
+// ─── Retry logic for transient failures ───────────────────────────────────────
+
+const MAX_RETRIES = 3
+const INITIAL_DELAY = 500 // ms
+
+function isRetryable(error) {
+  // Retry on network errors or 5xx server errors, but NOT on 4xx client errors
+  return !error.status || error.status >= 500
+}
+
+async function withRetry(fn, retries = MAX_RETRIES) {
+  let lastError
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      return await fn()
+    } catch (error) {
+      lastError = error
+      if (!isRetryable(error) || attempt === retries - 1) {
+        throw error
+      }
+      // Exponential backoff: 500ms, 1s, 2s
+      const delay = INITIAL_DELAY * Math.pow(2, attempt)
+      await new Promise((r) => setTimeout(r, delay))
+    }
+  }
+  throw lastError
+}
+
+// ─── Core fetch wrapper with retry and error handling ──────────────────────────
 
 export async function apiFetch(path, options = {}) {
   const token = getToken()
+  let attempt = 0
 
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(options.headers ?? {}),
-  }
+  return withRetry(async () => {
+    attempt++
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers,
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers ?? {}),
+    }
+
+    let res
+    try {
+      res = await fetch(`${BASE_URL}${path}`, {
+        ...options,
+        headers,
+      })
+    } catch (err) {
+      // Network error
+      const error = new ApiError(0, `Network error: ${err.message}`, err)
+      console.error(`[API] ${options.method ?? 'GET'} ${path} - Network error (attempt ${attempt}):`, err.message)
+      throw error
+    }
+
+    // 204 No Content — return null
+    if (res.status === 204) {
+      console.debug(`[API] ${options.method ?? 'GET'} ${path} - 204 No Content`)
+      return null
+    }
+
+    let data
+    try {
+      data = await res.json()
+    } catch {
+      data = null
+    }
+
+    if (!res.ok) {
+      const message = data?.error ?? data?.detail ?? `Request failed (${res.status})`
+      const error = new ApiError(res.status, message, data)
+
+      if (res.status >= 500) {
+        console.error(`[API] ${options.method ?? 'GET'} ${path} - ${res.status} (attempt ${attempt}):`, message)
+      } else {
+        console.warn(`[API] ${options.method ?? 'GET'} ${path} - ${res.status}:`, message)
+      }
+
+      throw error
+    }
+
+    console.debug(`[API] ${options.method ?? 'GET'} ${path} - 200 OK`)
+    return data
   })
-
-  // 204 No Content — return null
-  if (res.status === 204) return null
-
-  let data
-  try {
-    data = await res.json()
-  } catch {
-    data = null
-  }
-
-  if (!res.ok) {
-    const message = data?.error ?? data?.detail ?? `Request failed (${res.status})`
-    throw new ApiError(res.status, message, data)
-  }
-
-  return data
 }
 
 // ─── Supabase Auth (direct — not through our backend) ────────────────────────

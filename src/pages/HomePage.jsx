@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { ArrowRight, Sparkles, Loader2 } from 'lucide-react'
+import { ArrowRight, Sparkles, Loader2, AlertCircle } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import ProductCard from '@/components/ProductCard'
 import Footer from '@/components/Footer'
@@ -11,20 +11,49 @@ const HomePage = () => {
   const [newArrivals, setNewArrivals] = useState([])
   const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   useEffect(() => {
-    Promise.all([
-      apiFetch('/products?page=1&page_size=4'),
-      apiFetch('/products?page=2&page_size=4'),
-      apiFetch('/categories'),
-    ])
-      .then(([feat, newArr, cats]) => {
-        setFeatured(feat.items ?? [])
-        setNewArrivals(newArr.items ?? [])
-        setCategories(Array.isArray(cats) ? cats.slice(0, 6) : [])
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+
+      try {
+        console.log('[HomePage] Fetching featured products, new arrivals, and categories...')
+
+        const [featData, newArrData, catsData] = await Promise.all([
+          apiFetch('/products?page=1&page_size=4').catch(err => {
+            console.error('[HomePage] Failed to fetch featured products:', err.message)
+            throw err
+          }),
+          apiFetch('/products?page=2&page_size=4').catch(err => {
+            console.error('[HomePage] Failed to fetch new arrivals:', err.message)
+            throw err
+          }),
+          apiFetch('/categories').catch(err => {
+            console.error('[HomePage] Failed to fetch categories:', err.message)
+            throw err
+          }),
+        ])
+
+        setFeatured(featData?.items ?? [])
+        setNewArrivals(newArrData?.items ?? [])
+        setCategories(Array.isArray(catsData) ? catsData.slice(0, 6) : [])
+
+        console.log('[HomePage] Data loaded successfully', {
+          featured: featData?.items?.length ?? 0,
+          newArrivals: newArrData?.items?.length ?? 0,
+          categories: catsData?.length ?? 0,
+        })
+      } catch (err) {
+        console.error('[HomePage] Error loading data:', err.message)
+        setError(err.message || 'Failed to load products and categories')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
   }, [])
 
   return (
@@ -98,13 +127,38 @@ const HomePage = () => {
             View All <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
+
+        {/* Error state */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-red-800">{error}</p>
+              <p className="text-xs text-red-700 mt-1">Try reloading the page to load products</p>
+            </div>
+          </div>
+        )}
+
+        {/* Loading state */}
         {loading ? (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="w-7 h-7 text-muted-foreground animate-spin" />
+            <div className="text-center">
+              <Loader2 className="w-7 h-7 text-muted-foreground animate-spin mx-auto mb-3" />
+              <p className="text-sm text-muted-foreground">Loading featured products...</p>
+            </div>
+          </div>
+        ) : featured.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {featured.map((product, i) => (
+              <ProductCard key={product.id} product={product} index={i} />
+            ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {featured.map((product, i) => <ProductCard key={product.id} product={product} index={i} />)}
+          <div className="py-16 text-center text-muted-foreground">
+            <p className="mb-4">No featured products available at this time</p>
+            <Link to="/products" className="text-sm font-medium text-primary hover:underline">
+              Browse all products
+            </Link>
           </div>
         )}
       </section>
@@ -133,9 +187,17 @@ const HomePage = () => {
             View All <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
-        {!loading && (
+
+        {/* New Arrivals Content */}
+        {newArrivals.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {newArrivals.map((product, i) => <ProductCard key={product.id} product={product} index={i} />)}
+            {newArrivals.map((product, i) => (
+              <ProductCard key={product.id} product={product} index={i} />
+            ))}
+          </div>
+        ) : (
+          <div className="py-16 text-center text-muted-foreground">
+            <p>No new arrivals available at this time</p>
           </div>
         )}
       </section>

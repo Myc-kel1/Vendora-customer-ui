@@ -13,7 +13,6 @@ import Navbar from '@/components/Navbar'
 import CartDrawer from '@/components/CartDrawer'
 import CartBar from '@/components/CartBar'
 import CheckoutModal from '@/components/CheckoutModal'
-import ApiSimulatorPanel from '@/components/ApiSimulatorPanel'
 import { Toaster } from '@/components/ui/toaster'
 import { Toaster as SonnerToaster } from '@/components/ui/sonner'
 
@@ -57,7 +56,6 @@ const AppShell = () => {
       <CartDrawer />
       <CartBar />
       <CheckoutModal />
-      <ApiSimulatorPanel />
 
       {/* Toast systems */}
       <Toaster />
