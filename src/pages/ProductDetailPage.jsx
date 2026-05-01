@@ -77,8 +77,8 @@ const ProductDetailPage = () => {
     }
   }
 
-  // Product images aren't stored on our API — use a consistent Unsplash image per product
-  const imageUrl = `https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80`
+  // Use product image from API, fallback to default if not provided
+  const imageUrl = product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80'
 
   return (
     <div className="min-h-screen">

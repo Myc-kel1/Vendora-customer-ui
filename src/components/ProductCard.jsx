@@ -6,27 +6,13 @@ import { useCart } from '@/contexts/CartContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from '@/hooks/use-toast'
 
-// Deterministic image per product — cycles through a curated set by index in product id
-const IMAGES = [
-  'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80',
-  'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&q=80',
-  'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=600&q=80',
-  'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=600&q=80',
-  'https://images.unsplash.com/photo-1560343090-f0409e92791a?w=600&q=80',
-  'https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=600&q=80',
-  'https://images.unsplash.com/photo-1585386959984-a4155224a1ad?w=600&q=80',
-  'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&q=80',
-  'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?w=600&q=80',
-  'https://images.unsplash.com/photo-1600185365926-3a2ce3cdb9eb?w=600&q=80',
-  'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=600&q=80',
-  'https://images.unsplash.com/photo-1625772452859-1c03d5bf1137?w=600&q=80',
-]
+// Fallback image if product doesn't have an image_url
+const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80'
 
 function getProductImage(product) {
-  // Use provided image if present (mock data), otherwise derive from id hash
-  if (product.image) return product.image
-  const hash = product.id.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-  return IMAGES[hash % IMAGES.length]
+  // Use the image_url from the API, fallback to default if not provided
+  if (product.image_url) return product.image_url
+  return FALLBACK_IMAGE
 }
 
 const ProductCard = ({ product, index = 0 }) => {
