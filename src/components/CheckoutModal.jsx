@@ -12,6 +12,10 @@ const stageLabels = {
     title: 'Connecting to Paystack',
     desc: 'Securely initializing your payment session…',
   },
+  authorizing: {
+    title: 'Ready to pay',
+    desc: 'Open Paystack and complete your payment securely.',
+  },
   verifying: {
     title: 'Verifying payment',
     desc: 'Confirming the transaction with Paystack…',
@@ -19,7 +23,7 @@ const stageLabels = {
 }
 
 const CheckoutModal = () => {
-  const { stage, order, reference, amount, authorizePayment, cancelPayment, reset } = useCheckout()
+  const { stage, order, reference, amount, authorizationUrl, verifyPayment, cancelPayment, reset } = useCheckout()
 
   const open = stage !== 'idle'
   const loadingStage =
@@ -60,7 +64,6 @@ const CheckoutModal = () => {
                 </div>
               )}
 
-              {/* Mock Paystack authorization page */}
               {stage === 'authorizing' && (
                 <div>
                   <div className="bg-[#0BA4DB] text-white px-6 py-5 flex items-center justify-between">
@@ -75,51 +78,31 @@ const CheckoutModal = () => {
                     <p className="font-display text-4xl font-bold text-foreground mb-1">
                       ${amount.toFixed(2)}
                     </p>
-                    <p className="text-xs text-muted-foreground mb-6">
+                    <p className="text-xs text-muted-foreground mb-4">
                       Reference: <code className="font-mono">{reference}</code>
                     </p>
 
-                    <div className="space-y-3 mb-6">
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                          Card number
-                        </label>
-                        <div className="flex items-center gap-2 px-4 py-3 bg-accent/50 border border-border rounded-xl">
-                          <CreditCard className="w-4 h-4 text-muted-foreground" />
-                          <span className="font-mono text-sm text-foreground tracking-wider">
-                            4084 0840 8408 4081
-                          </span>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                            Expiry
-                          </label>
-                          <div className="px-4 py-3 bg-accent/50 border border-border rounded-xl font-mono text-sm text-foreground">
-                            12/30
-                          </div>
-                        </div>
-                        <div>
-                          <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-                            CVV
-                          </label>
-                          <div className="px-4 py-3 bg-accent/50 border border-border rounded-xl font-mono text-sm text-foreground">
-                            •••
-                          </div>
-                        </div>
-                      </div>
+                    <div className="rounded-3xl border border-border bg-muted/50 p-4 mb-6 text-sm text-foreground space-y-3">
+                      <p>
+                        Click the button below to open Paystack and complete your payment. When you return, verify the transaction to finalize your order.
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        If the payment is not yet complete, you can retry verification after you finish.
+                      </p>
                     </div>
 
-                    <p className="text-[11px] text-muted-foreground mb-4 text-center">
-                      This is a simulated checkout · no real charge will occur
-                    </p>
-
                     <button
-                      onClick={authorizePayment}
-                      className="w-full py-4 bg-[#0BA4DB] text-white rounded-xl font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                      onClick={() => window.open(authorizationUrl, '_blank', 'noreferrer')}
+                      disabled={!authorizationUrl}
+                      className="w-full py-4 bg-[#0BA4DB] text-white rounded-xl font-medium hover:opacity-90 transition-opacity disabled:cursor-not-allowed disabled:opacity-60 flex items-center justify-center gap-2"
                     >
-                      Pay ${amount.toFixed(2)}
+                      Open Paystack checkout
+                    </button>
+                    <button
+                      onClick={verifyPayment}
+                      className="w-full py-4 mt-3 bg-foreground text-background rounded-xl font-medium hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                    >
+                      I have completed payment
                     </button>
                     <button
                       onClick={cancelPayment}

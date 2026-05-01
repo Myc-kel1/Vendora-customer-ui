@@ -30,11 +30,11 @@ export function CheckoutProvider({ children }) {
   )
 
   // ─── Full checkout flow ───────────────────────────────────────────────────
-  // Step 1: POST /orders  →  creates order, returns order with id + total
-  // Step 2: POST /payments/initialize  →  returns Paystack authorization_url + reference
-  // Step 3: UI shows Paystack modal (we simulate the redirect inline)
-  // Step 4: User pays → authorizePayment() is called
-  // Step 5: PATCH order status locally to 'paid' (webhook handles real confirmation)
+  // Step 1: POST /orders  → creates a pending order for the current user
+  // Step 2: POST /payments/initialize → returns authorization_url + reference
+  // Step 3: Client redirects user to Paystack authorization_url
+  // Step 4: User returns and client calls GET /payments/verify/{reference}
+  // Step 5: Mark order paid/failed locally after verification
 
   const startCheckout = useCallback(
     async (_items, amount) => {
@@ -47,7 +47,7 @@ export function CheckoutProvider({ children }) {
 
         // Step 2 — initialize payment
         const payment = await log(
-          { method: 'POST', endpoint: '/payments/initialize', description: `Initialize Paystack · order ${order.id}`, statusCode: 201 },
+          { method: 'POST', endpoint: '/payments/initialize', description: `Initialize payment · order ${order.id}`, statusCode: 200 },
           () => apiFetch('/payments/initialize', {
             method: 'POST',
             body: JSON.stringify({ order_id: order.id }),
@@ -61,7 +61,6 @@ export function CheckoutProvider({ children }) {
           stage: 'authorizing',
         }))
       } catch (err) {
-        // Order creation or payment init failed
         if (order) markFailed(order.id)
         setState(initial)
         throw err
@@ -70,28 +69,33 @@ export function CheckoutProvider({ children }) {
     [createOrder, log, markFailed]
   )
 
-  // Called when user clicks "Pay" in our simulated Paystack modal
-  const authorizePayment = useCallback(async () => {
+  const verifyPayment = useCallback(async () => {
+    if (!state.reference) return
     setState((s) => ({ ...s, stage: 'verifying' }))
+
     try {
-      // In production the webhook does this — here we poll once to simulate
-      await log(
-        { method: 'GET', endpoint: `/orders/${state.order?.id}`, description: 'Confirm order status' },
-        () => apiFetch(`/orders/${state.order?.id}`)
+      const result = await log(
+        { method: 'GET', endpoint: `/payments/verify/${state.reference}`, description: 'Verify payment' },
+        () => apiFetch(`/payments/verify/${state.reference}`)
       )
-      if (state.order) markPaid(state.order.id)
-      clearCart()
-      setState((s) => ({ ...s, stage: 'success' }))
-    } catch {
+
+      if (result.status === 'paid' && state.order) {
+        markPaid(state.order.id)
+        clearCart()
+        setState((s) => ({ ...s, stage: 'success' }))
+      } else if (result.status === 'pending') {
+        setState((s) => ({ ...s, stage: 'authorizing' }))
+      } else {
+        if (state.order) markFailed(state.order.id)
+        setState((s) => ({ ...s, stage: 'failed' }))
+      }
+    } catch (err) {
       if (state.order) markFailed(state.order.id)
       setState((s) => ({ ...s, stage: 'failed' }))
     }
-  }, [log, state.order, markPaid, markFailed, clearCart])
+  }, [log, state.reference, state.order, markPaid, markFailed, clearCart])
 
-  // Called when user clicks "Cancel" in the payment modal
   const cancelPayment = useCallback(async () => {
-    setState((s) => ({ ...s, stage: 'verifying' }))
-    await new Promise((r) => setTimeout(r, 500))
     if (state.order) markFailed(state.order.id)
     setState((s) => ({ ...s, stage: 'failed' }))
   }, [state.order, markFailed])
@@ -99,7 +103,7 @@ export function CheckoutProvider({ children }) {
   const reset = useCallback(() => setState(initial), [])
 
   return (
-    <CheckoutContext.Provider value={{ ...state, startCheckout, authorizePayment, cancelPayment, reset }}>
+    <CheckoutContext.Provider value={{ ...state, startCheckout, verifyPayment, cancelPayment, reset }}>
       {children}
     </CheckoutContext.Provider>
   )
