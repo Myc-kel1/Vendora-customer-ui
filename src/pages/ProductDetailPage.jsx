@@ -77,8 +77,7 @@ const ProductDetailPage = () => {
     }
   }
 
-  // Use product image from API, fallback to default if not provided
-  const imageUrl = product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80'
+  const imageUrl = product.image_url
 
   return (
     <div className="min-h-screen">
@@ -90,7 +89,9 @@ const ProductDetailPage = () => {
 
         <div className="grid lg:grid-cols-2 gap-12 lg:gap-16">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="rounded-3xl overflow-hidden bg-cream aspect-square">
-            <img src={imageUrl} alt={product.name} className="w-full h-full object-cover" />
+            {imageUrl ? (
+              <img src={imageUrl} alt={product.name} className="w-full h-full object-cover" />
+            ) : null}
           </motion.div>
 
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="flex flex-col justify-center">

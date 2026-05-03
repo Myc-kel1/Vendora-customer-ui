@@ -6,15 +6,6 @@ import { useCart } from '@/contexts/CartContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { toast } from '@/hooks/use-toast'
 
-// Fallback image if product doesn't have an image_url
-const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&q=80'
-
-function getProductImage(product) {
-  // Use the image_url from the API, fallback to default if not provided
-  if (product.image_url) return product.image_url
-  return FALLBACK_IMAGE
-}
-
 const ProductCard = ({ product, index = 0 }) => {
   const { addToCart, openDrawer } = useCart()
   const { isAuthenticated } = useAuth()
@@ -41,7 +32,7 @@ const ProductCard = ({ product, index = 0 }) => {
     }
   }
 
-  const image = getProductImage(product)
+  const image = product.image_url
 
   return (
     <motion.div
@@ -51,12 +42,14 @@ const ProductCard = ({ product, index = 0 }) => {
     >
       <Link to={`/products/${product.id}`} className="group block">
         <div className="relative overflow-hidden rounded-2xl bg-cream aspect-[3/4] mb-4">
-          <img
-            src={image}
-            alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            loading="lazy"
-          />
+          {image ? (
+            <img
+              src={image}
+              alt={product.name}
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              loading="lazy"
+            />
+          ) : null}
           <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/5 transition-colors duration-300" />
           <motion.button
             onClick={handleAddToCart}
